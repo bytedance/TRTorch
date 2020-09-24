@@ -300,6 +300,7 @@ int main(int argc, char** argv) {
     try {
         // Deserialize the ScriptModule from a file using torch::jit::load().
         mod = torch::jit::load(real_input_path);
+        mod.eval();
     }
     catch (const c10::Error& e) {
         trtorch::logging::log(trtorch::logging::Level::kERROR, "Error loading the model (path may be incorrect)");
