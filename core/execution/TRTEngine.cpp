@@ -81,20 +81,6 @@ TRTEngine::~TRTEngine() {
 //     return c10::List<at::Tensor>(output_vec);
 // }
 
-static auto TRTORCH_UNUSED TRTEngineTSRegistrtion = torch::class_<TRTEngine>("tensorrt", "Engine")
-    .def(torch::init<std::string>())
-    // TODO: .def("__call__", &TRTEngine::Run)
-    // TODO: .def("run", &TRTEngine::Run)
-    .def_pickle(
-        [](const c10::intrusive_ptr<TRTEngine>& self) -> std::string {
-            auto serialized_engine = self->cuda_engine->serialize();
-            return std::string((const char*)serialized_engine->data(), serialized_engine->size());
-        },
-        [](std::string seralized_engine) -> c10::intrusive_ptr<TRTEngine> {
-            return c10::make_intrusive<TRTEngine>(std::move(seralized_engine));
-        }
-    );
-
 } // namespace execution
 } // namespace core
 } // namespace trtorch
