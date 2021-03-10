@@ -8,13 +8,16 @@ namespace trtorch {
 namespace core {
 namespace conversion {
 
+// clang-format off
 std::ostream& operator<<(std::ostream& os, const BuilderSettings& s) {
     os << "Settings requested for TensorRT engine:"                                        \
        << "\n    Operating Precision: " << s.op_precision                                  \
+       << "\n    TF32 Floating Point Computation Enabled: " << !s.disable_tf32             \
        << "\n    Make Refittable Engine: " << s.refit                                      \
        << "\n    Debuggable Engine: " << s.debug                                           \
        << "\n    Strict Types: " << s.strict_types                                         \
-       << "\n    Allow GPU Fallback (if running on DLA): " << s.allow_gpu_fallback         \
+       << "\n    GPU ID: " << s.device.gpu_id                                              \
+       << "\n    Allow GPU Fallback (if running on DLA): " << s.device.allow_gpu_fallback  \
        << "\n    Min Timing Iterations: " << s.num_min_timing_iters                        \
        << "\n    Avg Timing Iterations: " << s.num_avg_timing_iters                        \
        << "\n    Max Workspace Size: " << s.workspace_size;
@@ -25,112 +28,146 @@ std::ostream& operator<<(std::ostream& os, const BuilderSettings& s) {
         os << "\n    Max Batch Size: Not set";
     }
 
-    os << "\n    Device Type: " << s.device                                                \
-       << "\n    Engine Capability: " << s.capability                                      \
+    os << "\n    Device Type: " << s.device.device_type                                    \
+       << "\n    GPU ID: " << s.device.gpu_id;
+    if (s.device.device_type == nvinfer1::DeviceType::kDLA)
+    {
+        os << "\n    DLACore: " << s.device.dla_core;
+    }
+    os << "\n    Engine Capability: " << s.capability                                      \
        << "\n    Calibrator Created: " << (s.calibrator != nullptr);
     return os;
 }
+// clang-format on
 
 ConversionCtx::ConversionCtx(BuilderSettings build_settings)
-    : settings(build_settings), logger("[TRTorch Conversion Context] - ",
-                                 util::logging::get_logger().get_reportable_severity(),
-                                 util::logging::get_logger().get_is_colored_output_on()) {
-    // TODO: Support FP16 and FP32 from JIT information
-    builder = nvinfer1::createInferBuilder(logger);
-    net = builder->createNetworkV2(1U << static_cast<uint32_t>(nvinfer1::NetworkDefinitionCreationFlag::kEXPLICIT_BATCH));
+    : settings(build_settings),
+      logger(
+          "[TRTorch Conversion Context] - ",
+          util::logging::get_logger().get_reportable_severity(),
+          util::logging::get_logger().get_is_colored_output_on()) {
+  // TODO: Support FP16 and FP32 from JIT information
+  if (settings.device.gpu_id) {
+    TRTORCH_CHECK(
+        cudaSetDevice(settings.device.gpu_id) == cudaSuccess, "Unable to set gpu id: " << settings.device.gpu_id);
+  }
 
-    LOG_DEBUG(build_settings);
-    cfg = builder->createBuilderConfig();
+  builder = nvinfer1::createInferBuilder(logger);
+  net = builder->createNetworkV2(1U << static_cast<uint32_t>(nvinfer1::NetworkDefinitionCreationFlag::kEXPLICIT_BATCH));
 
-    switch(settings.op_precision) {
+  LOG_DEBUG(build_settings);
+  cfg = builder->createBuilderConfig();
+
+  switch (settings.op_precision) {
     case nvinfer1::DataType::kHALF:
-        TRTORCH_CHECK(builder->platformHasFastFp16(), "Requested inference in FP16 but platform does support FP16");
-        cfg->setFlag(nvinfer1::BuilderFlag::kFP16);
-        input_type = nvinfer1::DataType::kHALF;
-        break;
+      TRTORCH_CHECK(builder->platformHasFastFp16(), "Requested inference in FP16 but platform does not support FP16");
+      cfg->setFlag(nvinfer1::BuilderFlag::kFP16);
+      input_type = nvinfer1::DataType::kHALF;
+      break;
     case nvinfer1::DataType::kINT8:
-        TRTORCH_CHECK(builder->platformHasFastInt8(), "Requested inference in INT8 but platform does support INT8");
-        cfg->setFlag(nvinfer1::BuilderFlag::kINT8);
-        if (!settings.strict_types) {
-            cfg->setFlag(nvinfer1::BuilderFlag::kFP16);
-        }
-        input_type = nvinfer1::DataType::kFLOAT;
-        TRTORCH_CHECK(settings.calibrator != nullptr, "Requested inference in INT8 but no calibrator provided, set the ptq_calibrator field in the ExtraInfo struct with your calibrator");
-        cfg->setInt8Calibrator(settings.calibrator);
-        break;
+      TRTORCH_CHECK(builder->platformHasFastInt8(), "Requested inference in INT8 but platform does not support INT8");
+      cfg->setFlag(nvinfer1::BuilderFlag::kINT8);
+      if (!settings.strict_types) {
+        cfg->setFlag(nvinfer1::BuilderFlag::kFP16);
+      }
+      input_type = nvinfer1::DataType::kFLOAT;
+      TRTORCH_CHECK(
+          settings.calibrator != nullptr,
+          "Requested inference in INT8 but no calibrator provided, set the ptq_calibrator field in the CompileSpec struct with your calibrator");
+      cfg->setInt8Calibrator(settings.calibrator);
+      break;
     case nvinfer1::DataType::kFLOAT:
     default:
-        input_type = nvinfer1::DataType::kFLOAT;
-        break;
-    }
-    op_precision = settings.op_precision;
+      input_type = nvinfer1::DataType::kFLOAT;
+      break;
+  }
+  op_precision = settings.op_precision;
 
-    if (settings.refit) {
-        cfg->setFlag(nvinfer1::BuilderFlag::kREFIT);
-    }
+  if (settings.disable_tf32) {
+    cfg->clearFlag(nvinfer1::BuilderFlag::kTF32);
+  }
 
-    if (settings.debug) {
-        cfg->setFlag(nvinfer1::BuilderFlag::kDEBUG);
-    }
+  if (settings.refit) {
+    cfg->setFlag(nvinfer1::BuilderFlag::kREFIT);
+  }
 
-    if (settings.strict_types) {
-        cfg->setFlag(nvinfer1::BuilderFlag::kSTRICT_TYPES);
-    }
+  if (settings.debug) {
+    cfg->setFlag(nvinfer1::BuilderFlag::kDEBUG);
+  }
 
-    if (settings.allow_gpu_fallback) {
-        cfg->setFlag(nvinfer1::BuilderFlag::kGPU_FALLBACK);
-    }
+  if (settings.strict_types) {
+    cfg->setFlag(nvinfer1::BuilderFlag::kSTRICT_TYPES);
+  }
 
-    if (settings.max_batch_size != 0) {
-        builder->setMaxBatchSize(settings.max_batch_size);
-    }
+  if (settings.device.allow_gpu_fallback) {
+    cfg->setFlag(nvinfer1::BuilderFlag::kGPU_FALLBACK);
+  }
 
-    cfg->setMinTimingIterations(settings.num_min_timing_iters);
-    cfg->setAvgTimingIterations(settings.num_avg_timing_iters);
-    cfg->setMaxWorkspaceSize(settings.workspace_size);
-    cfg->setDefaultDeviceType(settings.device);
-    cfg->setEngineCapability(settings.capability);
+  if (settings.max_batch_size != 0) {
+    builder->setMaxBatchSize(settings.max_batch_size);
+  }
+
+  cfg->setMinTimingIterations(settings.num_min_timing_iters);
+  cfg->setAvgTimingIterations(settings.num_avg_timing_iters);
+  cfg->setMaxWorkspaceSize(settings.workspace_size);
+  cfg->setDefaultDeviceType(settings.device.device_type);
+  cfg->setEngineCapability(settings.capability);
+
+  if (settings.device.device_type == nvinfer1::DeviceType::kDLA) {
+    auto nbDLACores = builder->getNbDLACores();
+    TRTORCH_CHECK(
+        static_cast<int>(settings.device.dla_core) < nbDLACores,
+        "Configured DLA Core ID: " << settings.device.dla_core
+                                   << " not available. Total number of available DLA Cores: " << nbDLACores);
+    TRTORCH_CHECK(settings.op_precision != nvinfer1::DataType::kFLOAT, "DLA supports only fp16 or int8 precision");
+    cfg->setDLACore(settings.device.dla_core);
+  }
 }
 
 ConversionCtx::~ConversionCtx() {
-    builder->destroy();
-    net->destroy();
-    cfg->destroy();
-    for (auto ptr : builder_resources) {
-        free(ptr);
-    }
+  builder->destroy();
+  net->destroy();
+  cfg->destroy();
+  for (auto ptr : builder_resources) {
+    free(ptr);
+  }
 }
 
 nvinfer1::ITensor* ConversionCtx::AssociateValueAndTensor(const torch::jit::Value* value, nvinfer1::ITensor* tensor) {
-    tensor->setName(value->debugName().c_str());
-    this->value_tensor_map[value] = tensor;
-    return tensor;
+  tensor->setName(value->debugName().c_str());
+  this->value_tensor_map[value] = tensor;
+  return tensor;
 }
 
 torch::jit::IValue* ConversionCtx::AssociateValueAndIValue(const torch::jit::Value* value, torch::jit::IValue ivalue) {
-    this->evaluated_value_map[value] = std::move(ivalue);
-    return &this->evaluated_value_map[value];
+  this->evaluated_value_map[value] = std::move(ivalue);
+  return &this->evaluated_value_map[value];
 }
 
 std::string ConversionCtx::SerializeEngine() {
-    auto engine = builder->buildEngineWithConfig(*net, *cfg);
-    auto serialized_engine = engine->serialize();
-    engine->destroy();
-    return std::string((const char*)serialized_engine->data(), serialized_engine->size());
+  auto engine = builder->buildEngineWithConfig(*net, *cfg);
+  auto serialized_engine = engine->serialize();
+  engine->destroy();
+  auto engine_str = std::string((const char*)serialized_engine->data(), serialized_engine->size());
+  serialized_engine->destroy();
+  return engine_str;
 }
 
 bool ConversionCtx::CheckLayerAddition(const torch::jit::Node* n) {
-    for (auto out : n->outputs()) {
-        auto iter_t = this->value_tensor_map.find(out);
-        if (iter_t == this->value_tensor_map.end()) {
-            auto iter_iv = this->evaluated_value_map.find(out);
-            if (iter_iv == this->evaluated_value_map.end()) {
-                LOG_WARNING("Node " << util::node_info(n) << " output: " << out->debugName() << " does not have a coresponding value or tensor, may potentially indicate a defective evaluator or converter");
-                return false;
-            }
-        }
+  for (auto out : n->outputs()) {
+    auto iter_t = this->value_tensor_map.find(out);
+    if (iter_t == this->value_tensor_map.end()) {
+      auto iter_iv = this->evaluated_value_map.find(out);
+      if (iter_iv == this->evaluated_value_map.end()) {
+        LOG_WARNING(
+            "Node "
+            << util::node_info(n) << " output: " << out->debugName()
+            << " does not have a coresponding value or tensor, may potentially indicate a defective evaluator or converter");
+        return false;
+      }
     }
-    return true;
+  }
+  return true;
 }
 
 } // namespace conversion
