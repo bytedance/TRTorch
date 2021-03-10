@@ -6,8 +6,7 @@ Here is the process we use for creating new releases of TRTorch
 
 While TRTorch is in alpha, patch versions are bumped sequentially on breaking changes in the compiler.
 
-In beta TRTorch will get a minor version bump on breaking changes or siginficant new functionality in the compiler, patch version will be incremented
-based on significant bug fixes.
+In beta TRTorch will get a minor version bump on breaking changes, or upgrade to the next version of PyTorch, patch version will be incremented based on significant bug fixes, or siginficant new functionality in the compiler.
 
 Once TRTorch hits version 1.0.0, major versions are bumped on breaking API changes, breaking changes or significant new functionality in the compiler
 will result in a minor version bump and sigificant bug fixes will result in a patch version change.
@@ -32,14 +31,14 @@ will result in a minor version bump and sigificant bug fixes will result in a pa
             - Reset `docsrc/conf.py` version
             - `make html`
         - Generate changelog
-            - `conventional-changelog -p angular -s CHANGELOG.md -t <last version tag> -a`
+            - `conventional-changelog -p angular -s -i CHANGELOG.md -t <last version tag> -a`
 4. Once PR is merged tag commit and start creating release on GitHub
     - Paste in Milestone information and Changelog information into release notes
     - Generate libtrtorch.tar.gz for the following platforms:
         - x86_64 cxx11-abi
         - x86_64 pre-cxx11-abi
         - TODO: Add cxx11-abi build for aarch64 when a manylinux container for aarch64 exists
-    - Generate Python packages for Python 3.5/3.6/3.7/3.8 for x86_64
+    - Generate Python packages for Python 3.6/3.7/3.8/3.9 for x86_64
         - TODO: Build a manylinux container for aarch64
         - `docker run -it -v$(pwd)/..:/workspace/TRTorch build_trtorch_wheel /bin/bash /workspace/TRTorch/py/build_whl.sh` generates all wheels
             - To build container `docker build -t build_trtorch_wheel .`

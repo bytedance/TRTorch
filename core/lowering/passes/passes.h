@@ -12,14 +12,17 @@ void Conv3DToConvolution(std::shared_ptr<torch::jit::Graph>& graph);
 void FuseAddMMBranches(std::shared_ptr<torch::jit::Graph> graph);
 void FuseFlattenLinear(std::shared_ptr<torch::jit::Graph>& graph);
 void EliminateExceptionOrPassPattern(std::shared_ptr<torch::jit::Graph> graph);
+void RemoveBNDimCheck(std::shared_ptr<torch::jit::Graph> graph);
 void RemoveContiguous(std::shared_ptr<torch::jit::Graph>& graph);
 void RemoveDropout(std::shared_ptr<torch::jit::Graph>& graph);
-void RemoveTo(std::shared_ptr<torch::jit::Graph> graph);
+void RemoveNOPs(std::shared_ptr<torch::jit::Graph> graph);
 void UnpackAddMM(std::shared_ptr<torch::jit::Graph>& graph);
 void UnpackBatchNorm(std::shared_ptr<torch::jit::Graph>& graph);
 void UnpackLogSoftmax(std::shared_ptr<torch::jit::Graph>& graph);
+void AliasOperators(std::shared_ptr<torch::jit::Graph>& graph);
+void SiluToSigmoidMultipication(std::shared_ptr<torch::jit::Graph>& graph);
 
-} // namespace irfusers
+} // namespace passes
 } // namespace lowering
 } // namespace core
-} // trtorch
+} // namespace trtorch

@@ -154,6 +154,12 @@
        <a href="https://nvidia.github.io/TRTorch/" title="master">
         master
        </a>
+       <a href="https://nvidia.github.io/TRTorch/v0.2.0/" title="v0.2.0">
+        v0.2.0
+       </a>
+       <a href="https://nvidia.github.io/TRTorch/v0.1.0/" title="v0.1.0">
+        v0.1.0
+       </a>
        <a href="https://nvidia.github.io/TRTorch/v0.0.3/" title="v0.0.3">
         v0.0.3
        </a>
@@ -340,6 +346,21 @@
            </a>
           </li>
           <li class="md-nav__item">
+           <a class="md-nav__link" href="use_from_pytorch.html">
+            Using TRTorch Directly From PyTorch
+           </a>
+          </li>
+          <li class="md-nav__item">
+           <a class="md-nav__link" href="runtime.html">
+            Deploying TRTorch Programs
+           </a>
+          </li>
+          <li class="md-nav__item">
+           <a class="md-nav__link" href="using_dla.html">
+            DLA
+           </a>
+          </li>
+          <li class="md-nav__item">
            <span class="md-nav__link caption">
             <span class="caption-text">
              Notebooks
@@ -405,6 +426,18 @@
           <li class="md-nav__item">
            <a class="md-nav__link" href="../contributors/useful_links.html">
             Useful Links for TRTorch Development
+           </a>
+          </li>
+          <li class="md-nav__item">
+           <span class="md-nav__link caption">
+            <span class="caption-text">
+             Indices
+            </span>
+           </span>
+          </li>
+          <li class="md-nav__item">
+           <a class="md-nav__link" href="../indices/supported_ops.html">
+            Operators Supported
            </a>
           </li>
          </ul>
@@ -994,7 +1027,7 @@ to load in a deployment application. In order to load a TensorRT/TorchScript mod
        </p>
        <div class="highlight-c++ notranslate">
         <div class="highlight">
-         <pre><span></span><span class="cp">#include</span> <span class="cpf">&lt;torch/script.h&gt; // One-stop header.</span><span class="cp"></span>
+         <pre><span></span><span class="cp">#include</span> <span class="cpf">&lt;torch/script.h&gt;</span><span class="c1"> // One-stop header.</span><span class="cp"></span>
 
 <span class="cp">#include</span> <span class="cpf">&lt;iostream&gt;</span><span class="cp"></span>
 <span class="cp">#include</span> <span class="cpf">&lt;memory&gt;</span><span class="cp"></span>
@@ -1007,7 +1040,7 @@ to load in a deployment application. In order to load a TensorRT/TorchScript mod
     <span class="p">}</span>
     <span class="k">catch</span> <span class="p">(</span><span class="k">const</span> <span class="n">c10</span><span class="o">::</span><span class="n">Error</span><span class="o">&amp;</span> <span class="n">e</span><span class="p">)</span> <span class="p">{</span>
         <span class="n">std</span><span class="o">::</span><span class="n">cerr</span> <span class="o">&lt;&lt;</span> <span class="s">"error loading the model</span><span class="se">\n</span><span class="s">"</span><span class="p">;</span>
-        <span class="k">return</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
+        <span class="k">return</span> <span class="mi">-1</span><span class="p">;</span>
     <span class="p">}</span>
 
     <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">"ok</span><span class="se">\n</span><span class="s">"</span><span class="p">;</span>
@@ -1077,7 +1110,7 @@ since it takes a bit of time to optimize the module, it would not make sense to 
     <span class="n">mod</span><span class="p">.</span><span class="n">eval</span><span class="p">();</span>
 
     <span class="k">auto</span> <span class="n">in</span> <span class="o">=</span> <span class="n">torch</span><span class="o">::</span><span class="n">randn</span><span class="p">({</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">},</span> <span class="p">{</span><span class="n">torch</span><span class="o">::</span><span class="n">kCUDA</span><span class="p">});</span>
-    <span class="k">auto</span> <span class="n">trt_mod</span> <span class="o">=</span> <span class="n">trtorch</span><span class="o">::</span><span class="n">CompileGraph</span><span class="p">(</span><span class="n">mod</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">trtorch</span><span class="o">::</span><span class="n">ExtraInfo</span><span class="o">::</span><span class="n">InputRange</span><span class="o">&gt;</span><span class="p">{{</span><span class="n">in</span><span class="p">.</span><span class="n">sizes</span><span class="p">()}});</span>
+    <span class="k">auto</span> <span class="n">trt_mod</span> <span class="o">=</span> <span class="n">trtorch</span><span class="o">::</span><span class="n">CompileGraph</span><span class="p">(</span><span class="n">mod</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">trtorch</span><span class="o">::</span><span class="n">CompileSpec</span><span class="o">::</span><span class="n">InputRange</span><span class="o">&gt;</span><span class="p">{{</span><span class="n">in</span><span class="p">.</span><span class="n">sizes</span><span class="p">()}});</span>
     <span class="k">auto</span> <span class="n">out</span> <span class="o">=</span> <span class="n">trt_mod</span><span class="p">.</span><span class="n">forward</span><span class="p">({</span><span class="n">in</span><span class="p">});</span>
 </pre>
         </div>
@@ -1098,8 +1131,8 @@ since it takes a bit of time to optimize the module, it would not make sense to 
     <span class="n">mod</span><span class="p">.</span><span class="n">eval</span><span class="p">();</span>
 
     <span class="k">auto</span> <span class="n">in</span> <span class="o">=</span> <span class="n">torch</span><span class="o">::</span><span class="n">randn</span><span class="p">({</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">},</span> <span class="p">{</span><span class="n">torch</span><span class="o">::</span><span class="n">kCUDA</span><span class="p">}).</span><span class="n">to</span><span class="p">(</span><span class="n">torch</span><span class="o">::</span><span class="n">kHALF</span><span class="p">);</span>
-    <span class="k">auto</span> <span class="n">input_sizes</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">trtorch</span><span class="o">::</span><span class="n">ExtraInfo</span><span class="o">::</span><span class="n">InputRange</span><span class="o">&gt;</span><span class="p">({</span><span class="n">in</span><span class="p">.</span><span class="n">sizes</span><span class="p">()});</span>
-    <span class="n">trtorch</span><span class="o">::</span><span class="n">ExtraInfo</span> <span class="n">info</span><span class="p">(</span><span class="n">input_sizes</span><span class="p">);</span>
+    <span class="k">auto</span> <span class="n">input_sizes</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">trtorch</span><span class="o">::</span><span class="n">CompileSpec</span><span class="o">::</span><span class="n">InputRange</span><span class="o">&gt;</span><span class="p">({</span><span class="n">in</span><span class="p">.</span><span class="n">sizes</span><span class="p">()});</span>
+    <span class="n">trtorch</span><span class="o">::</span><span class="n">CompileSpec</span> <span class="n">info</span><span class="p">(</span><span class="n">input_sizes</span><span class="p">);</span>
     <span class="n">info</span><span class="p">.</span><span class="n">op_precision</span> <span class="o">=</span> <span class="n">torch</span><span class="o">::</span><span class="n">kHALF</span><span class="p">;</span>
     <span class="k">auto</span> <span class="n">trt_mod</span> <span class="o">=</span> <span class="n">trtorch</span><span class="o">::</span><span class="n">CompileGraph</span><span class="p">(</span><span class="n">mod</span><span class="p">,</span> <span class="n">info</span><span class="p">);</span>
     <span class="k">auto</span> <span class="n">out</span> <span class="o">=</span> <span class="n">trt_mod</span><span class="p">.</span><span class="n">forward</span><span class="p">({</span><span class="n">in</span><span class="p">});</span>
@@ -1136,7 +1169,7 @@ since it takes a bit of time to optimize the module, it would not make sense to 
     <span class="p">}</span>
     <span class="k">catch</span> <span class="p">(</span><span class="k">const</span> <span class="n">c10</span><span class="o">::</span><span class="n">Error</span><span class="o">&amp;</span> <span class="n">e</span><span class="p">)</span> <span class="p">{</span>
         <span class="n">std</span><span class="o">::</span><span class="n">cerr</span> <span class="o">&lt;&lt;</span> <span class="s">"error loading the model</span><span class="se">\n</span><span class="s">"</span><span class="p">;</span>
-        <span class="k">return</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
+        <span class="k">return</span> <span class="mi">-1</span><span class="p">;</span>
     <span class="p">}</span>
 
     <span class="n">torch</span><span class="o">::</span><span class="n">Tensor</span> <span class="n">in</span> <span class="o">=</span> <span class="n">torch</span><span class="o">::</span><span class="n">randn</span><span class="p">({</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">},</span> <span class="n">torch</span><span class="o">::</span><span class="n">kCUDA</span><span class="p">);</span>
@@ -1166,8 +1199,8 @@ since it takes a bit of time to optimize the module, it would not make sense to 
     <span class="n">mod</span><span class="p">.</span><span class="n">eval</span><span class="p">();</span>
 
     <span class="k">auto</span> <span class="n">in</span> <span class="o">=</span> <span class="n">torch</span><span class="o">::</span><span class="n">randn</span><span class="p">({</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">},</span> <span class="p">{</span><span class="n">torch</span><span class="o">::</span><span class="n">kCUDA</span><span class="p">}).</span><span class="n">to</span><span class="p">(</span><span class="n">torch</span><span class="o">::</span><span class="n">kHALF</span><span class="p">);</span>
-    <span class="k">auto</span> <span class="n">input_sizes</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">trtorch</span><span class="o">::</span><span class="n">ExtraInfo</span><span class="o">::</span><span class="n">InputRange</span><span class="o">&gt;</span><span class="p">({</span><span class="n">in</span><span class="p">.</span><span class="n">sizes</span><span class="p">()});</span>
-    <span class="n">trtorch</span><span class="o">::</span><span class="n">ExtraInfo</span> <span class="n">info</span><span class="p">(</span><span class="n">input_sizes</span><span class="p">);</span>
+    <span class="k">auto</span> <span class="n">input_sizes</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">trtorch</span><span class="o">::</span><span class="n">CompileSpec</span><span class="o">::</span><span class="n">InputRange</span><span class="o">&gt;</span><span class="p">({</span><span class="n">in</span><span class="p">.</span><span class="n">sizes</span><span class="p">()});</span>
+    <span class="n">trtorch</span><span class="o">::</span><span class="n">CompileSpec</span> <span class="n">info</span><span class="p">(</span><span class="n">input_sizes</span><span class="p">);</span>
     <span class="n">info</span><span class="p">.</span><span class="n">op_precision</span> <span class="o">=</span> <span class="n">torch</span><span class="o">::</span><span class="n">kHALF</span><span class="p">;</span>
     <span class="k">auto</span> <span class="n">trt_mod</span> <span class="o">=</span> <span class="n">trtorch</span><span class="o">::</span><span class="n">ConvertGraphToTRTEngine</span><span class="p">(</span><span class="n">mod</span><span class="p">,</span> <span class="s">"forward"</span><span class="p">,</span> <span class="n">info</span><span class="p">);</span>
     <span class="n">std</span><span class="o">::</span><span class="n">ofstream</span> <span class="n">out</span><span class="p">(</span><span class="s">"/tmp/engine_converted_from_jit.trt"</span><span class="p">);</span>

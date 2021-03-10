@@ -18,7 +18,7 @@ More Information / System Architecture:
 #include "trtorch/trtorch.h"
 
 ...
-auto compile_settings = trtorch::ExtraInfo(dims);
+auto compile_settings = trtorch::CompileSpec(dims);
 // FP16 execution
 compile_settings.op_precision = torch::kFloat;
 // Compile module
@@ -54,7 +54,7 @@ torch.jit.save(trt_ts_module, "trt_torchscript_module.ts")
 ```
 
 > Notes on running in lower precisions:
-> - Set precision with extra_info.op_precision
+> - Set precision with compile_spec.op_precision
 > - The module should be left in FP32 before compilation (FP16 can support half tensor models)
 > - In FP16 only input tensors should be converted to FP16, other precisions use FP32
 
@@ -63,20 +63,21 @@ torch.jit.save(trt_ts_module, "trt_torchscript_module.ts")
 | Platform | Support |
 | -------- | ------- |
 | Linux AMD64 / GPU   | **Supported** |
-| Linux aarch64 / GPU | **Native Compilation Supported on JetPack-4.4** |
-| Linux aarch64 / DLA | **Native Compilation Supported on JetPack-4.4 but untested** |
+| Linux aarch64 / GPU | **Native Compilation Supported on JetPack-4.4+** |
+| Linux aarch64 / DLA | **Native Compilation Supported on JetPack-4.4+** |
 | Windows / GPU       | **Unofficial Support** |
 | Linux ppc64le / GPU | - |
 
 > Note: Refer NVIDIA NGC container(https://ngc.nvidia.com/catalog/containers/nvidia:l4t-pytorch) for PyTorch libraries on JetPack.
 
 ### Dependencies
+These are the following dependencies used to verify the testcases. TRTorch can work with other versions, but the tests are not guaranteed to pass.
 
-- Bazel 3.3.1
-- Libtorch 1.5.1
-- CUDA 10.2
-- cuDNN 7.6.5 (by default, cuDNN 8 supported with compatable PyTorch build)
-- TensorRT 7.0.0 (by default, TensorRT 7.1 supported with compatable PyTorch build)
+- Bazel 3.7.0
+- Libtorch 1.7.x (built with CUDA 11.0)
+- CUDA 11.0 (10.2 on Jetson)
+- cuDNN 8
+- TensorRT 7.2
 
 ## Prebuilt Binaries and Wheel files
 

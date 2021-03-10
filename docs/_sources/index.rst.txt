@@ -25,7 +25,9 @@ Getting Started
 * :ref:`getting_started`
 * :ref:`ptq`
 * :ref:`trtorchc`
-
+* :ref:`use_from_pytorch`
+* :ref:`runtime`
+* :ref:`using_dla`
 
 .. toctree::
    :caption: Getting Started
@@ -36,11 +38,10 @@ Getting Started
    tutorials/getting_started
    tutorials/ptq
    tutorials/trtorchc
+   tutorials/use_from_pytorch
+   tutorials/runtime
+   tutorials/using_dla
    _notebooks/lenet
-
-Notebooks
-------------
-* :ref:`lenet`
 
 .. toctree::
    :caption: Notebooks
@@ -91,8 +92,15 @@ Contributor Documentation
 
 Indices
 ----------------
-
+* :ref:`supported_ops`
 * :ref:`genindex`
 * :ref:`search`
+
+.. toctree::
+   :caption: Indices
+   :maxdepth: 1
+   :hidden:
+
+   indices/supported_ops
 
 

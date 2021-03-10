@@ -19,7 +19,7 @@ pkg_tar(
         "//core/conversion/tensorcontainer:include",
         "//core/conversion/evaluators:include",
         "//core/conversion/converters/impl/plugins:include",
-        "//core/execution:include",
+        "//core/runtime:include",
         "//core/lowering:include",
         "//core/lowering/passes:include",
         "//core/util:include",
@@ -40,7 +40,10 @@ pkg_tar(
     package_dir = "lib/",
     srcs = select({
         ":windows": ["//cpp/api/lib:trtorch.dll"],
-        "//conditions:default": ["//cpp/api/lib:libtrtorch.so"],
+        "//conditions:default": [
+            "//cpp/api/lib:libtrtorch.so",
+            "//cpp/api/lib:libtrtorchrt.so",
+        ],
     }),
     mode = "0755",
 )
