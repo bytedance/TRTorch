@@ -75,8 +75,8 @@ void resize_layer_size(
  */
 
 auto interpolate_registrations TRTORCH_UNUSED = RegisterNodeConversionPatterns().pattern(
-    {"aten::instance_norm(Tensor input, Tensor? weight, Tensor? bias, Tensor? running_mean, Tensor? running_var, bool use_input_stats, float momentum, float eps, bool cudnn_enabled) -> (Tensor))",
-     [](ConversionCtx* ctx, const torch::jit::Node* n, args& args) -> bool {
+    {"aten::instance_norm(Tensor input, Tensor? weight, Tensor? bias, Tensor? running_mean, Tensor? running_var, bool use_input_stats, float momentum, float eps, bool cudnn_enabled) -> (Tensor)",
+    [](ConversionCtx* ctx, const torch::jit::Node* n, args& args) -> bool {
        auto in = args[0].ITensor();
        auto in_shape = util::toVec(in->getDimensions());
        bool align_corners = args[2].unwrapToBool();
@@ -109,7 +109,7 @@ auto interpolate_registrations TRTORCH_UNUSED = RegisterNodeConversionPatterns()
        }
 
        return true;
-     }})
+     }});
 } // namespace
 } // namespace impl
 } // namespace converters
