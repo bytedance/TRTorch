@@ -1,5 +1,9 @@
 #include <iostream>
 #include <sstream>
+
+#include "NvInferPlugin.h"
+#include "NvInferPluginUtils.h"
+
 #include <utility>
 
 #include "core/conversion/conversionctx/ConversionCtx.h"
@@ -46,6 +50,22 @@ ConversionCtx::ConversionCtx(BuilderSettings build_settings)
           "[TRTorch Conversion Context] - ",
           util::logging::get_logger().get_reportable_severity(),
           util::logging::get_logger().get_is_colored_output_on()) {
+  // Get list of all available plugin creators
+
+  initLibNvInferPlugins(&logger, "");
+
+  int numCreators = 0;
+  auto tmpList = getPluginRegistry()->getPluginCreatorList(&numCreators);
+  for (int k = 0; k < numCreators; ++k) {
+    if (!tmpList[k]) {
+      continue;
+    }
+    std::string pluginName = tmpList[k]->getPluginName();
+    mPluginRegistry[pluginName] = tmpList[k];
+    LOG_DEBUG("Register plugin: " << pluginName);
+  }
+  LOG_DEBUG("Number of plugin: " << mPluginRegistry.size());
+
   // TODO: Support FP16 and FP32 from JIT information
   if (settings.device.gpu_id) {
     TRTORCH_CHECK(

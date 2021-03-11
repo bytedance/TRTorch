@@ -16,6 +16,10 @@ converter_test(
 )
 
 converter_test(
+  name = "test_cumsum"
+)
+
+converter_test(
   name = "test_concat"
 )
 
@@ -25,10 +29,6 @@ converter_test(
 
 converter_test(
   name = "test_element_wise"
-)
-
-converter_test(
-  name = "test_expand"
 )
 
 converter_test(
@@ -72,11 +72,15 @@ converter_test(
 )
 
 converter_test(
+  name = "test_lstm_cell"
+)
+
+converter_test(
   name = "test_topk"
 )
 
 converter_test(
-  name = "test_lstm_cell"
+  name = "test_type_as"
 )
 
 converter_test(
@@ -87,14 +91,26 @@ converter_test(
   name = "test_squeeze"
 )
 
+converter_test(
+  name = "test_expand"
+)
+
+converter_test(
+  name = "test_normalize"
+)
+
+converter_test(
+  name = "test_model"
+)
+
 test_suite(
   name = "converter_tests",
   tests = [
     ":test_activation",
     ":test_batch_norm",
+    ":test_cumsum",
     ":test_conv_deconv",
     ":test_element_wise",
-    ":test_expand",
     ":test_linear",
     ":test_matrix_multiply",
     ":test_pooling",
@@ -106,8 +122,12 @@ test_suite(
     ":test_select",
     ":test_stack",
     ":test_lstm_cell",
+    ":test_topk",
+    ":test_type_as",
     ":test_unsqueeze",
     ":test_squeeze",
-    ":test_topk",
+    ":test_expand",
+    ":test_normalize",
+    ":test_model"
   ]
 )

@@ -143,7 +143,7 @@ TEST(Converters, ATenExpandTileLastConvertsCorrectly) {
 TEST(Converters, ATenExpandTileLastConvertsCorrectlyWithDynamicInput) {
   const auto graph = R"IR(
     graph(%x.1 : Tensor):
-            %2 : int[] = prim::Constant[value=[1, 3, 4]]()
+            %2 : int[] = prim::Constant[value=[3, 4]]()
             %3 : bool = prim::Constant[value=0]()
             %4 : Tensor = aten::expand(%x.1, %2, %3)
             return (%4))IR";
@@ -167,59 +167,6 @@ TEST(Converters, ATenExpandTileLastConvertsCorrectlyWithDynamicInput) {
   ASSERT_TRUE(trtorch::tests::util::almostEqual(jit_results[0], trt, 2e-6));
 }
 
-TEST(Converters, ATenExpandNegativeSizeConvertsCorrectly) {
-  const auto graph = R"IR(
-    graph(%x.1 : Tensor):
-            %2 : int[] = prim::Constant[value=[3, -1, 4]]()
-            %3 : bool = prim::Constant[value=0]()
-            %4 : Tensor = aten::expand(%x.1, %2, %3)
-            return (%4))IR";
-
-  auto g = std::make_shared<torch::jit::Graph>();
-
-  torch::jit::parseIR(graph, &*g);
-
-  auto in = at::randint(1, 10, {3, 1}, {at::kCUDA});
-
-  auto jit_in = at::clone(in);
-  auto params = trtorch::core::conversion::get_named_params(g->inputs(), {});
-  auto jit_results = trtorch::tests::util::RunGraph(g, params, {jit_in});
-
-  auto trt_in = at::clone(in);
-  params = trtorch::core::conversion::get_named_params(g->inputs(), {});
-  auto trt_results = trtorch::tests::util::RunGraphEngine(g, params, {trt_in});
-
-  auto trt = trt_results[0].reshape(jit_results[0].sizes());
-
-  ASSERT_TRUE(trtorch::tests::util::almostEqual(jit_results[0], trt, 2e-6));
-}
-
-TEST(Converters, ATenExpandNegativeSizeConvertsCorrectlyWithDynamicInput) {
-  const auto graph = R"IR(
-    graph(%x.1 : Tensor):
-            %2 : int[] = prim::Constant[value=[3, -1, 4]]()
-            %3 : bool = prim::Constant[value=0]()
-            %4 : Tensor = aten::expand(%x.1, %2, %3)
-            return (%4))IR";
-
-  auto g = std::make_shared<torch::jit::Graph>();
-
-  torch::jit::parseIR(graph, &*g);
-
-  auto in = at::randint(1, 10, {3, 1}, {at::kCUDA});
-
-  auto jit_in = at::clone(in);
-  auto params = trtorch::core::conversion::get_named_params(g->inputs(), {});
-  auto jit_results = trtorch::tests::util::RunGraph(g, params, {jit_in});
-
-  auto trt_in = at::clone(in);
-  params = trtorch::core::conversion::get_named_params(g->inputs(), {});
-  auto trt_results = trtorch::tests::util::RunGraphEngineDynamic(g, params, {trt_in});
-
-  auto trt = trt_results[0].reshape(jit_results[0].sizes());
-
-  ASSERT_TRUE(trtorch::tests::util::almostEqual(jit_results[0], trt, 2e-6));
-}
 
 /* Expand_as layer takes two inputs and only dimensions of second input are
    actually used. TRT prunes away the second input. This will result in internal

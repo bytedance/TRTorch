@@ -174,7 +174,7 @@ auto select_registrations TRTORCH_UNUSED =
             {"aten::embedding(Tensor weight, Tensor indices, int padding_idx=-1, bool scale_grad_by_freq=False, bool sparse=False) -> (Tensor)",
              [](ConversionCtx* ctx, const torch::jit::Node* n, args& args) -> bool {
                auto embeddingTensor = args[0].ITensorOrFreeze(ctx);
-               auto indicesTensor = args[1].ITensor();
+               auto indicesTensor = args[1].isITensor() ?  args[1].ITensor() : tensor_to_const(ctx, args[1].IValue()->toTensor().to(torch::kI32));
                // Set datatype for indices tensor to INT32
                indicesTensor->setType(nvinfer1::DataType::kINT32);
 
@@ -186,7 +186,6 @@ auto select_registrations TRTORCH_UNUSED =
                auto out = ctx->AssociateValueAndTensor(n->outputs()[0], gather_out);
 
                LOG_DEBUG("Output tensor shape: " << out->getDimensions());
-
                return true;
              }})
         .pattern(

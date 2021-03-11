@@ -243,6 +243,35 @@ auto element_wise_registrations TRTORCH_UNUSED =
                     LOG_DEBUG("Output tensor shape: " << out->getDimensions());
                     return true;
                   }})
+        .pattern({"aten::sub.Tensor(Tensor self, Tensor other, Scalar alpha=1) -> "
+                  "Tensor",
+                  [](ConversionCtx* ctx, const torch::jit::Node* n, args& args) -> bool {
+                    // Should implement self - alpha * other
+                    auto self = args[0].ITensorOrFreeze(ctx);
+                    auto scalar = args[2].unwrapToScalar().to<float>();
+                    auto other = args[1].ITensorOrFreeze(ctx);
+
+                    if (1 != scalar) {
+                      auto alphaTensor = tensor_to_const(ctx, torch::tensor({scalar}));
+                      auto scaleLayer = add_elementwise(
+                          ctx,
+                          nvinfer1::ElementWiseOperation::kPROD,
+                          other,
+                          alphaTensor,
+                          util::node_info(n) + std::string("_AlphaMultiplier"));
+                      TRTORCH_CHECK(scaleLayer, "Unable to create alpha*input layer from node: " << *n);
+                      other = scaleLayer->getOutput(0);
+                    }
+
+                    auto sub =
+                        add_elementwise(ctx, nvinfer1::ElementWiseOperation::kSUB, self, other, util::node_info(n));
+                    TRTORCH_CHECK(sub, "Unable to create sub layer from node: " << *n);
+
+                    sub->setName(util::node_info(n).c_str());
+                    auto out = ctx->AssociateValueAndTensor(n->outputs()[0], sub->getOutput(0));
+                    LOG_DEBUG("Output tensor shape: " << out->getDimensions());
+                    return true;
+                  }})
         .pattern({"aten::sub_.Tensor(Tensor(a!) self, Tensor other, *, Scalar "
                   "alpha=1) -> (Tensor(a!))",
                   [](ConversionCtx* ctx, const torch::jit::Node* n, args& args) -> bool {
@@ -334,8 +363,18 @@ auto element_wise_registrations TRTORCH_UNUSED =
                     // Should implement self / other
                     auto self = args[0].ITensorOrFreeze(ctx);
                     auto other = args[1].ITensorOrFreeze(ctx);
-                    auto div =
-                        add_elementwise(ctx, nvinfer1::ElementWiseOperation::kDIV, self, other, util::node_info(n));
+                    nvinfer1::ILayer* div = nullptr;
+                    if (self->getType() != other->getType()) {
+                      auto self_id = ctx->net->addIdentity(*self);
+                      auto other_id = ctx->net->addIdentity(*other);
+                      self_id->getOutput(0)->setType(nvinfer1::DataType::kFLOAT);
+                      other_id->getOutput(0)->setType(nvinfer1::DataType::kFLOAT);
+                      div =
+                        add_elementwise(ctx, nvinfer1::ElementWiseOperation::kDIV, self_id->getOutput(0), other_id->getOutput(0), util::node_info(n));
+                    } else {
+                      div =
+                          add_elementwise(ctx, nvinfer1::ElementWiseOperation::kDIV, self, other, util::node_info(n));
+                    }
 
                     TRTORCH_CHECK(div, "Unable to create div layer from node: " << *n);
 
@@ -350,8 +389,19 @@ auto element_wise_registrations TRTORCH_UNUSED =
                     auto self = args[0].ITensorOrFreeze(ctx);
                     auto otherScalar = args[1].unwrapToScalar().to<float>();
                     auto other = tensor_to_const(ctx, torch::tensor({otherScalar}));
-                    auto div =
-                        add_elementwise(ctx, nvinfer1::ElementWiseOperation::kDIV, self, other, util::node_info(n));
+                    nvinfer1::ILayer* div = nullptr;
+                    if (self->getType() != other->getType()) {
+                      auto self_id = ctx->net->addIdentity(*self);
+                      auto other_id = ctx->net->addIdentity(*other);
+                      self_id->getOutput(0)->setType(nvinfer1::DataType::kFLOAT);
+                      other_id->getOutput(0)->setType(nvinfer1::DataType::kFLOAT);
+                      div =
+                        add_elementwise(ctx, nvinfer1::ElementWiseOperation::kDIV, self_id->getOutput(0), other_id->getOutput(0), util::node_info(n));
+                    } else {
+                      div =
+                          add_elementwise(ctx, nvinfer1::ElementWiseOperation::kDIV, self, other, util::node_info(n));
+                    }
+
                     TRTORCH_CHECK(div, "Unable to create div layer from node: " << *n);
 
                     div->setName(util::node_info(n).c_str());
@@ -394,6 +444,39 @@ auto element_wise_registrations TRTORCH_UNUSED =
                     // Should implement self * other
                     auto self = args[0].ITensorOrFreeze(ctx);
                     auto other = args[1].ITensorOrFreeze(ctx);
+                    nvinfer1::ILayer* mul = nullptr;
+                    if (self->getType() == nvinfer1::DataType::kBOOL || other->getType() == nvinfer1::DataType::kBOOL) {
+                      auto self_id = ctx->net->addIdentity(*self);
+                      auto other_id = ctx->net->addIdentity(*other);
+                      if (self->getType() == nvinfer1::DataType::kBOOL) {
+                        self_id->getOutput(0)->setType(nvinfer1::DataType::kINT32);
+                      }
+                      if (other->getType() == nvinfer1::DataType::kBOOL) {
+                        other_id->getOutput(0)->setType(nvinfer1::DataType::kINT32);
+                      }
+                      mul = add_elementwise(
+                          ctx,
+                          nvinfer1::ElementWiseOperation::kPROD,
+                          self_id->getOutput(0),
+                          other_id->getOutput(0),
+                          util::node_info(n));
+                    } else {
+                      mul =
+                          add_elementwise(ctx, nvinfer1::ElementWiseOperation::kPROD, self, other, util::node_info(n));
+                    }
+                    TRTORCH_CHECK(mul, "Unable to create mul layer from node: " << *n);
+
+                    mul->setName(util::node_info(n).c_str());
+                    auto out = ctx->AssociateValueAndTensor(n->outputs()[0], mul->getOutput(0));
+                    LOG_DEBUG("Output tensor shape: " << out->getDimensions());
+                    return true;
+                  }})
+        .pattern({"aten::mul.Scalar(Tensor self, Scalar other) -> (Tensor)",
+                  [](ConversionCtx* ctx, const torch::jit::Node* n, args& args) -> bool {
+                    // TODO: Remove with functionalization
+                    auto self = args[0].ITensorOrFreeze(ctx);
+                    auto otherScalar = args[1].unwrapToScalar().to<float>();
+                    auto other = tensor_to_const(ctx, torch::tensor({otherScalar}));
                     auto mul =
                         add_elementwise(ctx, nvinfer1::ElementWiseOperation::kPROD, self, other, util::node_info(n));
                     TRTORCH_CHECK(mul, "Unable to create mul layer from node: " << *n);
@@ -466,8 +549,9 @@ auto element_wise_registrations TRTORCH_UNUSED =
         .pattern({"aten::ne.Scalar(Tensor self, Scalar other) -> (Tensor)",
                   [](ConversionCtx* ctx, const torch::jit::Node* n, args& args) -> bool {
                     auto self = args[0].ITensorOrFreeze(ctx);
-                    auto scalar = args[1].unwrapToScalar().to<float>();
-                    auto scalar_tensor = tensor_to_const(ctx, torch::tensor({scalar}));
+                    self->setType(nvinfer1::DataType::kINT32);
+                    auto scalar = args[1].unwrapToScalar().to<int32_t>();
+                    auto scalar_tensor = tensor_to_const(ctx, torch::tensor({scalar}, torch::kInt32));
                     auto equal = add_elementwise(
                         ctx,
                         nvinfer1::ElementWiseOperation::kEQUAL,
@@ -491,7 +575,11 @@ auto element_wise_registrations TRTORCH_UNUSED =
                     TRTORCH_CHECK(sub, "Unable to create ne (not equal) layer from node: " << *n);
 
                     sub->setName(util::node_info(n).c_str());
-                    auto out = ctx->AssociateValueAndTensor(n->outputs()[0], sub->getOutput(0));
+
+                    auto output_cast = ctx->net->addIdentity(*sub->getOutput(0));
+                    output_cast->setOutputType(0, nvinfer1::DataType::kINT32);
+                    auto out = ctx->AssociateValueAndTensor(n->outputs()[0], output_cast->getOutput(0));
+                    
                     LOG_DEBUG("Not equal layer output tensor shape: " << out->getDimensions());
                     return true;
                   }})

@@ -118,12 +118,10 @@ auto aten_registrations TRTORCH_UNUSED =
                     // aten::zeros(int[] size, *, int? dtype=None, int? layout=None,
                     // Device? device=None, bool? pin_memory=None) -> (Tensor)
                     [](const torch::jit::Node* n, kwargs& args) -> c10::optional<torch::jit::IValue> {
-                      auto options = torch::TensorOptions().layout(torch::kStrided).device(torch::kCUDA);
-
-                      // Input 1 here is the dtype
-                      if (!args.at(n->input(1)).isNone() && !args.at(n->input(1)).IValue()->isNone()) {
-                        options = options.dtype(c10::ScalarType(args.at(n->input(1)).unwrapToInt()));
-                      }
+                      auto options = torch::TensorOptions()
+                                         .dtype(c10::ScalarType(args.at(n->input(1)).unwrapToInt()))
+                                         .layout(torch::kStrided)
+                                         .device(torch::kCUDA);
 
                       auto out_tensor = torch::zeros(args.at(n->input(0)).unwrapToIntList().vec(), options);
                       return out_tensor;
@@ -467,7 +465,52 @@ auto aten_registrations TRTORCH_UNUSED =
                       LOG_WARNING("Warning from TorchScript: " << *warning);
                       return {};
                     },
-                    EvalOptions()});
+                    EvalOptions()})
+        .evaluator({c10::Symbol::fromQualString("aten::is_floating_point"),
+                    [](const torch::jit::Node* n, kwargs& args) -> c10::optional<torch::jit::IValue> {
+                      auto tensor_var = args.at(n->input(0));
+                      if (tensor_var.isITensor()) {
+                        auto tensor = tensor_var.ITensor();
+                        auto t = tensor->getType();
+                        return (t == nvinfer1::DataType::kFLOAT || t == nvinfer1::DataType::kHALF);
+                      } else {
+                        auto tensor = tensor_var.unwrapToTensor();
+                        auto t = tensor.scalar_type();
+                        return at::isFloatingType(t);
+                      }
+                    },
+                    EvalOptions().validSchemas({
+                        "aten::is_floating_point(Tensor self) -> (bool)",
+                    })})
+        .evaluator({c10::Symbol::fromQualString("aten::Int"),
+                    [](const torch::jit::Node* n, kwargs& args) -> c10::optional<torch::jit::IValue> {
+                      auto tensor_var = args.at(n->input(0));
+                      if (tensor_var.isITensor()) {
+                        TRTORCH_ASSERT(!tensor_var.isITensor(), "Unable evaluate ITensor to int");
+                        return -1;
+                      } else {
+                        auto tensor = tensor_var.unwrapToTensor();
+                        auto t = tensor.item();
+                        return (int)t.to<int>();
+                      }
+                    },
+                    EvalOptions().validSchemas({
+                        "aten::Int.Tensor(Tensor a) -> (int)",
+                    })})
+        .evaluator({c10::Symbol::fromQualString("aten::arange"),
+                    [](const torch::jit::Node* n, kwargs& args) -> c10::optional<torch::jit::IValue> {
+                      int end_scalar = 0;
+                      if (args.at(n->input(0)).IValue()->isInt()) {
+                        end_scalar = args.at(n->input(0)).unwrapToInt();
+                      } else if (args.at(n->input(0)).IValue()->isDouble()) {
+                        end_scalar = ceil(args.at(n->input(0)).unwrapToScalar().to<float>());
+                      }
+                      return torch::arange(end_scalar);
+                    },
+                    EvalOptions().validSchemas({
+                        R"SIG(aten::arange(Scalar end, *, int? dtype=None, int? layout=None,
+                            Device? device=None, bool? pin_memory=None) -> (Tensor))SIG",
+                    })});
 } // namespace
 } // namespace evaluators
 } // namespace conversion
