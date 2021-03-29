@@ -5,6 +5,7 @@
 
 #include "core/runtime/runtime.h"
 #include "core/util/prelude.h"
+#include <NvInferPlugin.h>
 
 namespace trtorch {
 namespace core {
@@ -30,6 +31,9 @@ std::vector<at::Tensor> execute_engine(std::vector<at::Tensor> inputs, c10::intr
     auto shape = core::util::toVec(dims);
     contig_inputs.push_back(inputs[pyt_idx].view(shape).contiguous());
     LOG_DEBUG("Input shape: " << dims);
+    auto min = compiled_engine->cuda_engine->getProfileDimensions(0, 0, nvinfer1::OptProfileSelector::kMIN);
+    auto max = compiled_engine->cuda_engine->getProfileDimensions(0, 0, nvinfer1::OptProfileSelector::kMAX);
+
     compiled_engine->exec_ctx->setBindingDimensions(i, dims);
     gpu_handles.push_back(contig_inputs.back().data_ptr());
   }

@@ -193,11 +193,14 @@ auto select_registrations TRTORCH_UNUSED =
              [](ConversionCtx* ctx, const torch::jit::Node* n, args& args) -> bool {
                auto in = args[0].ITensor();
                auto axis = args[1].unwrapToInt();
+               auto dims = in->getDimensions();
                auto maxDim = static_cast<int64_t>(in->getDimensions().d[axis]);
                // Handle case when given tensor index is negative
                auto startIdx = args[2].unwrapToInt();
                auto start = (startIdx < 0) ? (maxDim + startIdx) : startIdx;
                // Bound the end index to input tensor dimensions at specified axis
+
+               auto endIdx_ = args[3].unwrapToInt();
                auto endIdx = std::min(args[3].unwrapToInt(), maxDim);
                auto end = (endIdx < 0) ? (maxDim + endIdx) : endIdx;
                auto step = args[4].unwrapToInt();

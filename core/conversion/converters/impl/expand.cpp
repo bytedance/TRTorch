@@ -226,14 +226,18 @@ auto expand_registrations TRTORCH_UNUSED =
                     auto num_expand_dims = repeats.size() - input_dims.nbDims;
 
                     if(ctx->input_is_dynamic){
-                      int input_rank = input_dims.nbDims;
-                      int output_rank= repeats.size();
-                      auto new_input_shape_tensor = concat(output_rank, input_rank, ctx, in);
+                      // int input_rank = input_dims.nbDims;
+                      // int output_rank= repeats.size();
+                      // auto new_input_shape_tensor = concat(output_rank, input_rank, ctx, in);
+                      // auto shape_dim = new_input_shape_tensor->getDimensions();
 
-                      // Add a reshape layer to expand dims
-                      auto shuffle = ctx->net->addShuffle(*in);
-                      shuffle->setInput(1, *new_input_shape_tensor);
-                      in = shuffle->getOutput(0);
+                      // // Add a reshape layer to expand dims
+                      // auto shuffle = ctx->net->addShuffle(*in);
+                      // shuffle->setInput(1, *new_input_shape_tensor);
+                      // auto _dim_0 = in->getDimensions();
+                      // in = shuffle->getOutput(0);
+                      // auto _dim = in->getDimensions();
+                      // in = shuffle->getOutput(0);
                     }else{
                       if (num_expand_dims > 0) {
                         nvinfer1::Dims reshape_dims;
@@ -257,6 +261,31 @@ auto expand_registrations TRTORCH_UNUSED =
                     // TODO: Implementation might not be performant. Explore other strategies to improve performance.
                     for (int i = repeats.size() - 1; i >= 0; --i) {
                       std::vector<nvinfer1::ITensor*> tensors_vec;
+                      if(repeats[i] == -1) {
+                        auto shape_tensor = ctx->net->addShape(*in)->getOutput(0);
+                        auto loop = ctx->net->addLoop();
+                        
+
+                        nvinfer1::ITensor* axis_length;
+                        {
+                          auto shape = nvinfer1::Dims{0};
+                          auto tmp_buffer = new int32_t;
+                          *tmp_buffer = i;
+                          nvinfer1::Weights weights{nvinfer1::DataType::kINT32, tmp_buffer, 1};
+                          auto axis_value = ctx->net->addConstant(shape, weights)->getOutput(0);
+                          axis_length = ctx->net->addGather(*shape_tensor, *axis_value, 0)->getOutput(0);
+                        }
+
+                        loop->addTripLimit(*axis_length, nvinfer1::TripLimit::kCOUNT);
+                        auto init = loop->addRecurrence(*in);
+                        auto loop_output = loop->addLoopOutput(*(init->getOutput(0)), nvinfer1::LoopOutput::kCONCATENATE, i);
+                        loop_output->setInput(1, *axis_length);
+                        auto before_dim = in->getDimensions();
+                        in = loop_output->getOutput(0);
+                        auto dim = in->getDimensions();
+                        continue;
+                      }
+
                       for (int j = 0; j < repeats[i]; j++) {
                         tensors_vec.push_back(in);
                       }
